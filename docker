@@ -1,2 +1,20 @@
 #!/usr/bin/env bash
 
+THIS_DOCKER="$(realpath "$0")"
+NEXT_DOCKER="$(which --all docker | grep --after-context=1 "$THIS_DOCKER" | tail -1)"
+
+function main {
+  if [[ "$EUID" -ne 0 ]]; then
+    sudo "$NEXT_DOCKER" "$@"
+  else
+    "$NEXT_DOCKER" "$@"
+  fi
+}
+
+function getDirName {
+  local path
+  path="${1:?No path specified.}"
+  echo "$(dirname "$(realpath "$path")")"
+}
+
+main "$@"
