@@ -4,17 +4,57 @@ THIS_DOCKER="$(realpath "$0")"
 NEXT_DOCKER="$(which --all docker | grep --after-context=1 "$THIS_DOCKER" | tail -1)"
 
 function main {
-  if [[ "$EUID" -ne 0 ]]; then
-    sudo "$NEXT_DOCKER" "$@"
+  local subcommand
+  subcommand="$1"
+  if is_override_subcommand "$subcommand"; then
+    "override_$subcommand" "$@"
   else
-    "$NEXT_DOCKER" "$@"
+    call_next_docker "$@"
   fi
 }
 
-function getDirName {
+function override_help {
+  echo 'halp'
+}
+
+function is_override_subcommand {
+  local subcommand
+  subcommand="$1"
+  get_override_subcommands | grep --quiet "^override_$subcommand$"
+}
+
+function get_override_subcommands {
+  get_function_names | grep '^override_'
+}
+
+function get_function_names {
+  declare -F | awk '{print $3}'
+}
+
+function get_dir_name {
   local path
   path="${1:?No path specified.}"
   echo "$(dirname "$(realpath "$path")")"
+}
+
+function call_this_docker {
+  "$THIS_DOCKER" "$@"
+}
+
+function call_next_docker {
+  if [[ "$EUID" -eq 0 ]]; then
+    "$NEXT_DOCKER" "$@"
+  else
+    sudo "$NEXT_DOCKER" "$@"
+  fi
+}
+
+function echo_tty {
+  echo "$@" > /dev/tty
+}
+
+function echo_err {
+  >&2 echo "$@"
 }
 
 main "$@"
