@@ -7,20 +7,15 @@ NEXT_DOCKER="$(which --all docker | grep --after-context=1 "$THIS_DOCKER" | tail
 DEFAULT_COMMAND='help'
 
 function main {
-  local subcommand args
+  local subcommand
   subcommand="$1"
-  args=("${@:2}")
   if [[ "$subcommand" == '' ]]; then
     subcommand="$DEFAULT_COMMAND"
   fi
   if is_override_subcommand "$subcommand"; then
-    if contains_help_flag "${args[@]}"; then
-      "help_long_$subcommand" "${args[@]}"
-    else
-      "override_$subcommand" "${args[@]}"
-    fi
+    call_override_command "$subcommand" "${@:2}"
   else
-    call_next_docker "${args[@]}"
+    call_next_docker "${@:2}"
   fi
 }
 
@@ -40,18 +35,35 @@ EOF
 }
 
 function override_help {
-  local default_help_message help_function
-  default_help_message="$(call_next_docker help "$@")"
-  echo "$default_help_message" | head --lines=-1
-  echo 'Overwritten commands:'
-  for help_function in $(get_short_help_commands | sort); do
-    "$help_function"
-  done
-  echo ''
-  echo "$default_help_message" | tail --lines=1 
+  if [[ "$#" -eq 0 ]]; then
+    local default_help_message help_function
+    default_help_message="$(call_next_docker help "$@")"
+    echo "$default_help_message" | head --lines=-1
+    echo 'Overwritten commands:'
+    for help_function in $(get_short_help_commands | sort); do
+      "$help_function"
+    done
+    echo ''
+    echo "$default_help_message" | tail --lines=1 
+  elif is_override_subcommand "$1"; then
+    "help_long_$1"
+  else
+    call_next_docker help "$@"
+  fi
 }
 
 # Override finders/testers (metaprogramming)
+
+function call_override_command {
+  local command args
+  command="$1"
+  args=("${@:2}")
+  if contains_help_flag "${args[@]}"; then
+    call_this_docker help "$command"
+  else
+    "override_$subcommand" "${args[@]}"
+  fi
+}
 
 function is_override_subcommand {
   local subcommand
@@ -90,7 +102,7 @@ function contains_help_flag {
 function get_dir_name {
   local path
   path="${1:?No path specified.}"
-  echo "$(dirname "$(realpath "$path")")"
+  dirname "$(realpath "$path")"
 }
 
 function call_this_docker {
