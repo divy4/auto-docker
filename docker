@@ -24,7 +24,6 @@ function main {
 function help_short_help {
   echo '  help        Show this message or more detailed command info'
 }
-
 function help_long_help {
   cat <<EOF
 
@@ -33,7 +32,6 @@ Usage:  docker help [command]
 List all available commands or view detailed usage of a command
 EOF
 }
-
 function override_help {
   if [[ "$#" -eq 0 ]]; then
     local default_help_message help_function
