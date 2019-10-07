@@ -1,29 +1,30 @@
 #!/usr/bin/env bash
 
+set -e
+
 THIS_DOCKER="$(realpath "$0")"
 NEXT_DOCKER="$(which --all docker | grep --after-context=1 "$THIS_DOCKER" | tail -1)"
+DEFAULT_COMMAND='help'
 
 function main {
-  local subcommand
+  local subcommand args
   subcommand="$1"
+  args=("${@:2}")
+  if [[ "$subcommand" == '' ]]; then
+    subcommand="$DEFAULT_COMMAND"
+  fi
   if is_override_subcommand "$subcommand"; then
-    "override_$subcommand" "${@:2}"
+    if contains_help_flag "${args[@]}"; then
+      "help_long_$subcommand" "${args[@]}"
+    else
+      "override_$subcommand" "${args[@]}"
+    fi
   else
-    call_next_docker "${@:2}"
+    call_next_docker "${args[@]}"
   fi
 }
 
 # Override commands (and help messages)
-
-function override_help {
-  local help_function
-  call_next_docker help "$@"
-  echo ''
-  echo 'Overwridden commands:'
-  for help_function in $(get_short_help_commands | sort); do
-    "$help_function"
-  done
-}
 
 function help_short_help {
   echo '  help        Show this message or more detailed command info'
@@ -36,6 +37,18 @@ Usage:  docker help [command]
 
 List all available commands or view detailed usage of a command
 EOF
+}
+
+function override_help {
+  local default_help_message help_function
+  default_help_message="$(call_next_docker help "$@")"
+  echo "$default_help_message" | head --lines=-1
+  echo 'Overwritten commands:'
+  for help_function in $(get_short_help_commands | sort); do
+    "$help_function"
+  done
+  echo ''
+  echo "$default_help_message" | tail --lines=1 
 }
 
 # Override finders/testers (metaprogramming)
@@ -64,6 +77,16 @@ function get_function_names {
 
 # Utility functions
 
+function contains_help_flag {
+  local arg
+  for arg in "$@"; do
+    if [[ "$arg" == "--help" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 function get_dir_name {
   local path
   path="${1:?No path specified.}"
@@ -78,6 +101,7 @@ function call_this_docker {
 function call_next_docker {
   if [[ "$EUID" -eq 0 ]]; then
     "$NEXT_DOCKER" "$@"
+    echo $?
   else
     sudo "$NEXT_DOCKER" "$@"
   fi
