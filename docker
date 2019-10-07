@@ -21,6 +21,21 @@ function main {
 
 # Override commands (and help messages)
 
+function help_short_autobuild {
+  echo '  autobuild   Build an image from a directory containing a Dockerfile'
+}
+function help_long_autobuild {
+  cat <<EOF
+
+Usage:  docker autobuild PATH
+
+Build an image from a directory containing a Dockerfile. The resulting image will be tagged with the name of the containing directory and tagged with the current time.
+EOF
+}
+function override_autobuild {
+  echo 'TODO'
+}
+
 function help_short_help {
   echo '  help        Show this message or more detailed command info'
 }
