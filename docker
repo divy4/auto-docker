@@ -15,16 +15,44 @@ function main {
   if is_override_subcommand "$subcommand"; then
     call_override_command "$subcommand" "${@:2}"
   else
-    call_next_docker "${@:2}"
+    call_next_docker "$@"
   fi
 }
 
 # Override commands (and help messages)
 
+function help_short_autobuild {
+  echo '  autobuild   Build an image from a directory containing a Dockerfile'
+}
+function help_long_autobuild {
+  cat <<EOF
+
+Usage:  docker autobuild PATH
+
+Build an image from a directory containing a Dockerfile. The resulting image will be tagged with the name of the containing directory and tagged with the current time.
+EOF
+}
+function override_autobuild {
+  local path image_name image_tag_date
+  if [[ "$#" -ne 1 ]]; then
+    echo_err '"docker autobuild" requires exactly 1 argument.'
+    help_long_autobuild 1>&2
+    return 1
+  elif [[ ! -d "$1" ]]; then
+    echo_err "'$1' is not a directory"
+    help_long_autobuild 1>&2
+    return 1
+  fi
+  path="$1"
+  
+  image_name="$(get_dir_name "$path")"
+  image_tag_date="$(get_time)"
+  docker build --tag "$image_name:$image_tag_date" --tag "$image_name:latest" "$path"
+}
+
 function help_short_help {
   echo '  help        Show this message or more detailed command info'
 }
-
 function help_long_help {
   cat <<EOF
 
@@ -33,7 +61,6 @@ Usage:  docker help [command]
 List all available commands or view detailed usage of a command
 EOF
 }
-
 function override_help {
   if [[ "$#" -eq 0 ]]; then
     local default_help_message help_function
@@ -89,6 +116,20 @@ function get_function_names {
 
 # Utility functions
 
+function call_this_docker {
+  main "$@"
+}
+
+# Note: you probably don't need to use this unless you're overriding an existing function
+function call_next_docker {
+  if [[ "$EUID" -eq 0 ]]; then
+    "$NEXT_DOCKER" "$@"
+    echo $?
+  else
+    sudo "$NEXT_DOCKER" "$@"
+  fi
+}
+
 function contains_help_flag {
   local arg
   for arg in "$@"; do
@@ -102,21 +143,11 @@ function contains_help_flag {
 function get_dir_name {
   local path
   path="${1:?No path specified.}"
-  dirname "$(realpath "$path")"
+  basename "$(realpath "$path")"
 }
 
-function call_this_docker {
-  main "$@"
-}
-
-# Note: you probably don't need to use this unless you're overriding an existing function
-function call_next_docker {
-  if [[ "$EUID" -eq 0 ]]; then
-    "$NEXT_DOCKER" "$@"
-    echo $?
-  else
-    sudo "$NEXT_DOCKER" "$@"
-  fi
+function get_time {
+  date --utc '+%Y-%m-%dT%H-%M-%SZ'
 }
 
 function echo_tty {
