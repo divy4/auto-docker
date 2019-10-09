@@ -15,7 +15,7 @@ function main {
   if is_override_subcommand "$subcommand"; then
     call_override_command "$subcommand" "${@:2}"
   else
-    call_next_docker "${@:2}"
+    call_next_docker "$@"
   fi
 }
 
