@@ -33,7 +33,7 @@ Build an image from a directory containing a Dockerfile. The resulting image wil
 EOF
 }
 function override_autobuild {
-  echo 'TODO'
+  get_time
 }
 
 function help_short_help {
@@ -102,6 +102,20 @@ function get_function_names {
 
 # Utility functions
 
+function call_this_docker {
+  main "$@"
+}
+
+# Note: you probably don't need to use this unless you're overriding an existing function
+function call_next_docker {
+  if [[ "$EUID" -eq 0 ]]; then
+    "$NEXT_DOCKER" "$@"
+    echo $?
+  else
+    sudo "$NEXT_DOCKER" "$@"
+  fi
+}
+
 function contains_help_flag {
   local arg
   for arg in "$@"; do
@@ -118,18 +132,8 @@ function get_dir_name {
   dirname "$(realpath "$path")"
 }
 
-function call_this_docker {
-  main "$@"
-}
-
-# Note: you probably don't need to use this unless you're overriding an existing function
-function call_next_docker {
-  if [[ "$EUID" -eq 0 ]]; then
-    "$NEXT_DOCKER" "$@"
-    echo $?
-  else
-    sudo "$NEXT_DOCKER" "$@"
-  fi
+function get_time {
+  date --utc '+%Y-%m-%dT%H-%M-%SZ'
 }
 
 function echo_tty {
