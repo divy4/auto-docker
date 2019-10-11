@@ -50,18 +50,54 @@ function override_autobuild {
 }
 
 function help_short_autorun {
-  echo '  autorun     TODO'
+  echo '  autorun     Run the latest image built from an autobuild'
 }
 function help_long_autorun {
   cat <<EOF
 
-Usage: TODO
+Usage:  docker autorun PATH METHOD [ARG...]
 
-TODO
+Run a container, where PATH is the directory used to build an image and METHOD is the method used to run the container.
+
+Available methods:
+  b, bash         Override the entrypoint to /bin/bash
+  d, detach       Run the container in detached mode
+  e, entrypoint   Override the entrypoint to [ARG...]
+  t, tty          Run the container in pseudo-tty mode
 EOF
 }
 function override_autorun {
-  echo 'TODO'
+  local path method args
+  path="$1"
+  method="$2"
+  args=("${@:3}")
+  if [[ "$#" -lt 2 ]]; then
+    echo_err '"docker autorun" requires at least 2 arguments.'
+    help_long_autorun 1>&2
+    return 1
+  elif [[ ! -d "$path" ]]; then
+    echo_err "$path is not a directory"
+    return 1
+  fi
+  case "$method" in
+    b|bash)
+      echo "TODO: $method"
+      ;;
+    d|detach)
+      echo "TODO: $method"
+      ;;
+    e|entrypoint)
+      echo "TODO: $method"
+      ;;
+    t|tty)
+      echo "TODO: $method"
+      ;;
+    *)
+      echo_err "Unknown method: $method"
+      help_long_autorun 1>&2
+      return 1
+      ;;
+  esac
 }
 
 function help_short_help {
