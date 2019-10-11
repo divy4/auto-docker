@@ -50,6 +50,21 @@ function override_autobuild {
   docker build --tag "$image_name:$image_tag_date" --tag "$image_name:latest" "$path"
 }
 
+function help_short_autorun {
+  echo '  autorun     TODO'
+}
+function help_long_autorun {
+  cat <<EOF
+
+Usage: TODO
+
+TODO
+EOF
+}
+function override_autorun {
+  echo 'TODO'
+}
+
 function help_short_help {
   echo '  help        Show this message or more detailed command info'
 }
