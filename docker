@@ -34,17 +34,16 @@ EOF
 }
 function override_autobuild {
   local path image_name image_tag_date
+  path="$1"
   if [[ "$#" -ne 1 ]]; then
     echo_err '"docker autobuild" requires exactly 1 argument.'
     help_long_autobuild 1>&2
     return 1
-  elif [[ ! -d "$1" ]]; then
-    echo_err "'$1' is not a directory"
+  elif [[ ! -d "$path" ]]; then
+    echo_err "'$path' is not a directory"
     help_long_autobuild 1>&2
     return 1
   fi
-  path="$1"
-  
   image_name="$(get_dir_name "$path")"
   image_tag_date="$(get_time)"
   docker build --tag "$image_name:$image_tag_date" --tag "$image_name:latest" "$path"
