@@ -5,6 +5,8 @@ set -e
 THIS_DOCKER="$(realpath "$0")"
 NEXT_DOCKER="$(which --all docker | grep --after-context=1 "$THIS_DOCKER" | tail -1)"
 DEFAULT_COMMAND='help'
+TIME_FORMAT='+%Y-%m-%dT%H-%M-%SZ'
+TIME_GREP_FORMAT='[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}T[0-9]\{2\}-[0-9]\{2\}-[0-9]\{2\}Z'
 
 function main {
   local subcommand
@@ -34,20 +36,79 @@ EOF
 }
 function override_autobuild {
   local path image_name image_tag_date
+  path="$1"
   if [[ "$#" -ne 1 ]]; then
     echo_err '"docker autobuild" requires exactly 1 argument.'
     help_long_autobuild 1>&2
     return 1
-  elif [[ ! -d "$1" ]]; then
-    echo_err "'$1' is not a directory"
+  elif [[ ! -d "$path" ]]; then
+    echo_err "'$path' is not a directory"
     help_long_autobuild 1>&2
     return 1
   fi
-  path="$1"
-  
   image_name="$(get_dir_name "$path")"
   image_tag_date="$(get_time)"
   docker build --tag "$image_name:$image_tag_date" --tag "$image_name:latest" "$path"
+}
+
+function help_short_autorun {
+  echo '  autorun     Run the latest image built from an autobuild'
+}
+function help_long_autorun {
+  cat <<EOF
+
+Usage:  docker autorun PATH METHOD [ARG...]
+
+Run a container, where PATH is the directory used to build an image and METHOD is the method used to run the container.
+
+Available methods:
+  a, ash          Override the entrypoint to /bin/ash
+  b, bash         Override the entrypoint to /bin/bash
+  d, detach       Run the container in detached mode
+  e, entrypoint   Override the entrypoint to [ARG...]
+  s, sh           Override the entrypoint to /bin/sh
+  t, tty          Run the container in pseudo-tty mode
+EOF
+}
+function override_autorun {
+  local path method args image_name
+  path="$1"
+  method="$2"
+  args=("${@:3}")
+  if [[ "$#" -lt 2 ]]; then
+    echo_err '"docker autorun" requires at least 2 arguments.'
+    help_long_autorun 1>&2
+    return 1
+  elif [[ ! -d "$path" ]]; then
+    echo_err "$path is not a directory"
+    return 1
+  fi
+  image_name="$(get_dir_name "$path")"
+  case "$method" in
+    a|ash)
+      docker run --name "$image_name" --rm --interactive --tty --entrypoint /bin/ash "$image_name"
+      ;;
+    b|bash)
+      docker run --name "$image_name" --rm --interactive --tty --entrypoint /bin/bash "$image_name"
+      ;;
+    d|detach)
+      docker run --name "$image_name" --rm --detach "$image_name"
+      ;;
+    e|entrypoint)
+      docker run --name "$image_name" --rm --interactive --tty --entrypoint "${args[0]}" "$image_name" "${args[@]:1}"
+      ;;
+    s|sh)
+      docker run --name "$image_name" --rm --interactive --tty --entrypoint /bin/sh "$image_name"
+      ;;
+    t|tty)
+      docker run --name "$image_name" --rm --interactive --tty "$image_name"
+      ;;
+    *)
+      echo_err "Unknown method: $method"
+      help_long_autorun 1>&2
+      return 1
+      ;;
+  esac
 }
 
 function help_short_help {
@@ -114,6 +175,18 @@ function get_function_names {
   declare -F | awk '{print $3}'
 }
 
+# Docker-specifc utility functions
+
+function get_image_tags_with_timestamp {
+  get_image_tags "$1" | grep "^$TIME_GREP_FORMAT$"
+}
+
+function get_image_tags {
+  local image_name
+  image_name="${1:?No image name specified.}"
+  call_this_docker image ls | awk "\$1 == \"$1\" {print \$2}"
+}
+
 # Utility functions
 
 function call_this_docker {
@@ -147,7 +220,7 @@ function get_dir_name {
 }
 
 function get_time {
-  date --utc '+%Y-%m-%dT%H-%M-%SZ'
+  date --utc "$TIME_FORMAT"
 }
 
 function echo_tty {
