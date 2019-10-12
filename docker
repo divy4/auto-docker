@@ -178,7 +178,7 @@ function get_function_names {
 # Docker-specifc utility functions
 
 function get_image_tags_with_timestamp {
-  get_image_tags "$1" | grep "$TIME_GREP_FORMAT"
+  get_image_tags "$1" | grep "^$TIME_GREP_FORMAT$"
 }
 
 function get_image_tags {
