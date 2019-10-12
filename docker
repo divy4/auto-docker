@@ -62,9 +62,11 @@ Usage:  docker autorun PATH METHOD [ARG...]
 Run a container, where PATH is the directory used to build an image and METHOD is the method used to run the container.
 
 Available methods:
+  a, ash          Override the entrypoint to /bin/ash
   b, bash         Override the entrypoint to /bin/bash
   d, detach       Run the container in detached mode
   e, entrypoint   Override the entrypoint to [ARG...]
+  s, sh           Override the entrypoint to /bin/sh
   t, tty          Run the container in pseudo-tty mode
 EOF
 }
@@ -83,6 +85,9 @@ function override_autorun {
   fi
   image_name="$(get_dir_name "$path")"
   case "$method" in
+    a|ash)
+      docker run --name "$image_name" --rm --interactive --tty --entrypoint /bin/ash "$image_name"
+      ;;
     b|bash)
       docker run --name "$image_name" --rm --interactive --tty --entrypoint /bin/bash "$image_name"
       ;;
@@ -91,6 +96,9 @@ function override_autorun {
       ;;
     e|entrypoint)
       docker run --name "$image_name" --rm --interactive --tty --entrypoint "${args[0]}" "$image_name" "${args[@]:1}"
+      ;;
+    s|sh)
+      docker run --name "$image_name" --rm --interactive --tty --entrypoint /bin/sh "$image_name"
       ;;
     t|tty)
       docker run --name "$image_name" --rm --interactive --tty "$image_name"
