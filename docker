@@ -170,7 +170,7 @@ Available methods:
 EOF
 }
 function override_autorun {
-  local path method args image_name
+  local path method args image_name container_name
   path="$1"
   method="$2"
   args=("${@:3}")
@@ -183,24 +183,25 @@ function override_autorun {
     return 1
   fi
   image_name="$(get_image_name "$path")"
+  container_name="$(echo "$image_name" | tr '/' '-')"
   case "$method" in
     a|ash)
-      docker run --name "$image_name" --rm --interactive --tty --entrypoint /bin/ash "$image_name"
+      docker run --name "$container_name" --rm --interactive --tty --entrypoint /bin/ash "$image_name"
       ;;
     b|bash)
-      docker run --name "$image_name" --rm --interactive --tty --entrypoint /bin/bash "$image_name"
+      docker run --name "$container_name" --rm --interactive --tty --entrypoint /bin/bash "$image_name"
       ;;
     d|detach)
-      docker run --name "$image_name" --rm --detach "$image_name"
+      docker run --name "$container_name" --rm --detach "$image_name"
       ;;
     e|entrypoint)
-      docker run --name "$image_name" --rm --interactive --tty --entrypoint "${args[0]}" "$image_name" "${args[@]:1}"
+      docker run --name "$container_name" --rm --interactive --tty --entrypoint "${args[0]}" "$image_name" "${args[@]:1}"
       ;;
     s|sh)
-      docker run --name "$image_name" --rm --interactive --tty --entrypoint /bin/sh "$image_name"
+      docker run --name "$container_name" --rm --interactive --tty --entrypoint /bin/sh "$image_name"
       ;;
     t|tty)
-      docker run --name "$image_name" --rm --interactive --tty "$image_name"
+      docker run --name "$container_name" --rm --interactive --tty "$image_name"
       ;;
     *)
       echo_err "Unknown method: $method"
