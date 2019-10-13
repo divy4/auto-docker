@@ -257,6 +257,16 @@ function get_image_tags {
   call_this_docker image ls | awk "\$1 == \"$1\" {print \$2}" | sort
 }
 
+function requires_sudo {
+  local args
+  args=("$@")
+  if [[ "${args[0]}" == 'help' ]] || \
+    contains_help_flag "${args[@]}"
+  then
+    return 1
+  fi
+}
+
 # Utility functions
 
 function call_this_docker {
@@ -265,11 +275,10 @@ function call_this_docker {
 
 # Note: you probably don't need to use this unless you're overriding an existing function
 function call_next_docker {
-  if [[ "$EUID" -eq 0 ]]; then
-    "$NEXT_DOCKER" "$@"
-    echo $?
-  else
+  if [[ "$EUID" -ne 0 ]] && requires_sudo "$@"; then
     sudo "$NEXT_DOCKER" "$@"
+  else
+    "$NEXT_DOCKER" "$@"
   fi
 }
 
