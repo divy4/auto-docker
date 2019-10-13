@@ -51,6 +51,68 @@ function override_autobuild {
   docker build --tag "$image_name:$image_tag_date" --tag "$image_name:latest" "$path"
 }
 
+function help_short_autoprune {
+  echo '  autoprune   Remove old versions of an image'
+}
+function help_long_autoprune {
+  cat <<EOF
+
+Usage:  docker autoprune PATH [METHOD]
+
+Remove autobuilt images built from PATH (default method: latest).
+
+Available methods:
+  a, all          Delete all versions of the image
+  o, old          Delete all versions of the image except for the latest (default)
+EOF
+}
+function override_autoprune {
+  local path method image_name tags image_name_with_tags
+  path="$1"
+  method="$2"
+  if [[ "$#" -ne 1 ]] && [[ "$#" -ne 2 ]]; then
+    echo_err '"docker autoprune" requires 1-2 arguments.'
+    help_long_autoprune 1>&2
+    return 1
+  elif [[ ! -d "$path" ]]; then
+    echo_err "'$path' is not a directory"
+    help_long_autoprune 1>&2
+    return 1
+  fi
+  image_name="$(get_dir_name "$path")"
+  if [[ -z "$method" ]]; then
+    method='old'
+  fi
+  case "$method" in
+    a|all)
+      mapfile -t tags < <(get_auto_image_tags "$image_name")
+      ;;
+    o|old)
+      mapfile -t tags < <( \
+        get_auto_image_tags_with_timestamp "$image_name" | \
+        head --lines=-1 \
+        )
+      ;;
+    *)
+      echo_err "Unknown method: $method"
+      help_long_autoprune 1>&2
+      return 1
+      ;;
+  esac
+  if [[ "${#tags[@]}" -eq 0 ]]; then
+    echo_err 'No images deleted.'
+  else
+    mapfile -t image_name_with_tags < <( \
+      echo "${tags[@]}" | \
+      spaces_to_newlines | \
+      xargs --max-lines=1 -I {} echo "$image_name:{}" \
+      )
+    echo "${image_name_with_tags[@]}" | \
+      spaces_to_newlines | \
+      xargs docker image rm
+  fi
+}
+
 function help_short_autorun {
   echo '  autorun     Run the latest image built from an autobuild'
 }
@@ -177,14 +239,22 @@ function get_function_names {
 
 # Docker-specifc utility functions
 
-function get_image_tags_with_timestamp {
-  get_image_tags "$1" | grep "^$TIME_GREP_FORMAT$"
+function get_auto_image_tags {
+  local image_name
+  image_name="${1:?No image name specified.}"
+  get_image_tags "$image_name" | grep "^\(\(latest\)\|\($TIME_GREP_FORMAT\)\)$"
+}
+
+function get_auto_image_tags_with_timestamp {
+  local image_name
+  image_name="${1:?No image name specified.}"
+  get_image_tags "$image_name" | grep "^$TIME_GREP_FORMAT$"
 }
 
 function get_image_tags {
   local image_name
   image_name="${1:?No image name specified.}"
-  call_this_docker image ls | awk "\$1 == \"$1\" {print \$2}"
+  call_this_docker image ls | awk "\$1 == \"$1\" {print \$2}" | sort
 }
 
 # Utility functions
@@ -221,6 +291,10 @@ function get_dir_name {
 
 function get_time {
   date --utc "$TIME_FORMAT"
+}
+
+function spaces_to_newlines {
+  tr ' ' '\n'
 }
 
 function echo_tty {
