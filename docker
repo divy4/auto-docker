@@ -31,11 +31,15 @@ function help_long_autobuild {
 
 Usage:  docker autobuild PATH
 
-Build an image from a directory containing a Dockerfile. The resulting image will be tagged with the name of the containing directory and tagged with the current time.
+Build an image from a directory containing a Dockerfile. \
+The resulting image will be tagged with the name of the \
+containing directory and tagged with the current time. \
+If docker is currently logged into a repo, the username with \
+an additional / will be prepended to the image name.
 EOF
 }
 function override_autobuild {
-  local path image_name image_tag_date
+  local path image_name username image_tag_date
   path="$1"
   if [[ "$#" -ne 1 ]]; then
     echo_err '"docker autobuild" requires exactly 1 argument.'
@@ -47,6 +51,9 @@ function override_autobuild {
     return 1
   fi
   image_name="$(get_dir_name "$path")"
+  if username="$(get_username)"; then
+    image_name="$username/$image_name"
+  fi
   image_tag_date="$(get_time)"
   docker build --tag "$image_name:$image_tag_date" --tag "$image_name:latest" "$path"
 }
@@ -121,7 +128,8 @@ function help_long_autorun {
 
 Usage:  docker autorun PATH METHOD [ARG...]
 
-Run a container, where PATH is the directory used to build an image and METHOD is the method used to run the container.
+Run a container, where PATH is the directory used to build an image \
+and METHOD is the method used to run the container.
 
 Available methods:
   a, ash          Override the entrypoint to /bin/ash
@@ -265,6 +273,11 @@ function requires_sudo {
   then
     return 1
   fi
+}
+
+function get_username {
+  docker info | grep 'Username:' | awk '{print $2}'
+  docker info | grep --quiet 'Username:' # exit code
 }
 
 # Utility functions
