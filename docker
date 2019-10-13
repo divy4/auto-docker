@@ -50,10 +50,7 @@ function override_autobuild {
     help_long_autobuild 1>&2
     return 1
   fi
-  image_name="$(get_dir_name "$path")"
-  if username="$(get_username)"; then
-    image_name="$username/$image_name"
-  fi
+  image_name="$(get_image_name "$path")"
   image_tag_date="$(get_time)"
   docker build --tag "$image_name:$image_tag_date" --tag "$image_name:latest" "$path"
 }
@@ -86,7 +83,7 @@ function override_autoprune {
     help_long_autoprune 1>&2
     return 1
   fi
-  image_name="$(get_dir_name "$path")"
+  image_name="$(get_image_name "$path")"
   if [[ -z "$method" ]]; then
     method='old'
   fi
@@ -117,6 +114,38 @@ function override_autoprune {
     echo "${image_name_with_tags[@]}" | \
       spaces_to_newlines | \
       xargs docker image rm
+  fi
+}
+
+function help_short_autopush {
+  echo '  autopush    Push the latest image built from a path'
+}
+function help_long_autopush {
+  cat <<EOF
+
+Usage:  docker autopush PATH
+
+Push the latest image build from PATH, including both the \
+'latest' and timestamp tags.
+EOF
+}
+function override_autopush {
+  local path image_name image_tag
+  path="$1"
+  if [[ "$#" -ne 1 ]]; then
+    echo_err '"docker autopush" requires exactly 1 argument.'
+    help_long_autopush 1>&2
+    return 1
+  elif [[ ! -d "$path" ]]; then
+    echo_err "$path is not a directory"
+    help_long_autopush 1>&2
+    return 1
+  fi
+  image_name="$(get_image_name "$path")"
+  image_tag="$(get_auto_image_tags_with_timestamp "$image_name" | tail -1)"
+  call_this_docker image push "$image_name:$image_tag"
+  if get_auto_image_tags "$image_name" | grep --quiet latest; then
+    call_this_docker image push "$image_name:latest"
   fi
 }
 
@@ -153,7 +182,7 @@ function override_autorun {
     echo_err "$path is not a directory"
     return 1
   fi
-  image_name="$(get_dir_name "$path")"
+  image_name="$(get_image_name "$path")"
   case "$method" in
     a|ash)
       docker run --name "$image_name" --rm --interactive --tty --entrypoint /bin/ash "$image_name"
@@ -246,6 +275,16 @@ function get_function_names {
 }
 
 # Docker-specifc utility functions
+
+function get_image_name {
+  local path username
+  path="${1:?No path specified}"
+  image_name="$(get_dir_name "$path")"
+  if username="$(get_username)"; then
+    image_name="$username/$image_name"
+  fi
+  echo "$image_name"
+}
 
 function get_auto_image_tags {
   local image_name
