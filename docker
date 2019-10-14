@@ -143,9 +143,11 @@ function override_autopush {
   fi
   image_name="$(get_image_name "$path")"
   image_tag="$(get_auto_image_tags_with_timestamp "$image_name" | tail -1)"
-  call_this_docker image push "$image_name:$image_tag"
-  if get_auto_image_tags "$image_name" | grep --quiet latest; then
+  if [[ -n "$image_tag" ]]; then
+    call_this_docker image push "$image_name:$image_tag"
     call_this_docker image push "$image_name:latest"
+  else
+    echo_err 'No images to push.'
   fi
 }
 
