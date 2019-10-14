@@ -31,11 +31,15 @@ function help_long_autobuild {
 
 Usage:  docker autobuild PATH
 
-Build an image from a directory containing a Dockerfile. The resulting image will be tagged with the name of the containing directory and tagged with the current time.
+Build an image from a directory containing a Dockerfile. \
+The resulting image will be tagged with the name of the \
+containing directory and tagged with the current time. \
+If docker is currently logged into a repo, the username with \
+an additional / will be prepended to the image name.
 EOF
 }
 function override_autobuild {
-  local path image_name image_tag_date
+  local path image_name username image_tag_date
   path="$1"
   if [[ "$#" -ne 1 ]]; then
     echo_err '"docker autobuild" requires exactly 1 argument.'
@@ -46,7 +50,7 @@ function override_autobuild {
     help_long_autobuild 1>&2
     return 1
   fi
-  image_name="$(get_dir_name "$path")"
+  image_name="$(get_image_name "$path")"
   image_tag_date="$(get_time)"
   docker build --tag "$image_name:$image_tag_date" --tag "$image_name:latest" "$path"
 }
@@ -79,7 +83,7 @@ function override_autoprune {
     help_long_autoprune 1>&2
     return 1
   fi
-  image_name="$(get_dir_name "$path")"
+  image_name="$(get_image_name "$path")"
   if [[ -z "$method" ]]; then
     method='old'
   fi
@@ -113,6 +117,40 @@ function override_autoprune {
   fi
 }
 
+function help_short_autopush {
+  echo '  autopush    Push the latest image built from a path'
+}
+function help_long_autopush {
+  cat <<EOF
+
+Usage:  docker autopush PATH
+
+Push the latest image build from PATH, including both the \
+'latest' and timestamp tags.
+EOF
+}
+function override_autopush {
+  local path image_name image_tag
+  path="$1"
+  if [[ "$#" -ne 1 ]]; then
+    echo_err '"docker autopush" requires exactly 1 argument.'
+    help_long_autopush 1>&2
+    return 1
+  elif [[ ! -d "$path" ]]; then
+    echo_err "$path is not a directory"
+    help_long_autopush 1>&2
+    return 1
+  fi
+  image_name="$(get_image_name "$path")"
+  image_tag="$(get_auto_image_tags_with_timestamp "$image_name" | tail -1)"
+  if [[ -n "$image_tag" ]]; then
+    call_this_docker image push "$image_name:$image_tag"
+    call_this_docker image push "$image_name:latest"
+  else
+    echo_err 'No images to push.'
+  fi
+}
+
 function help_short_autorun {
   echo '  autorun     Run the latest image built from an autobuild'
 }
@@ -121,7 +159,8 @@ function help_long_autorun {
 
 Usage:  docker autorun PATH METHOD [ARG...]
 
-Run a container, where PATH is the directory used to build an image and METHOD is the method used to run the container.
+Run a container, where PATH is the directory used to build an image \
+and METHOD is the method used to run the container.
 
 Available methods:
   a, ash          Override the entrypoint to /bin/ash
@@ -133,7 +172,7 @@ Available methods:
 EOF
 }
 function override_autorun {
-  local path method args image_name
+  local path method args image_name container_name
   path="$1"
   method="$2"
   args=("${@:3}")
@@ -143,27 +182,29 @@ function override_autorun {
     return 1
   elif [[ ! -d "$path" ]]; then
     echo_err "$path is not a directory"
+    help_long_autorun 1>&2
     return 1
   fi
-  image_name="$(get_dir_name "$path")"
+  image_name="$(get_image_name "$path")"
+  container_name="$(echo "$image_name" | tr '/' '-')"
   case "$method" in
     a|ash)
-      docker run --name "$image_name" --rm --interactive --tty --entrypoint /bin/ash "$image_name"
+      docker run --name "$container_name" --rm --interactive --tty --entrypoint /bin/ash "$image_name"
       ;;
     b|bash)
-      docker run --name "$image_name" --rm --interactive --tty --entrypoint /bin/bash "$image_name"
+      docker run --name "$container_name" --rm --interactive --tty --entrypoint /bin/bash "$image_name"
       ;;
     d|detach)
-      docker run --name "$image_name" --rm --detach "$image_name"
+      docker run --name "$container_name" --rm --detach "$image_name"
       ;;
     e|entrypoint)
-      docker run --name "$image_name" --rm --interactive --tty --entrypoint "${args[0]}" "$image_name" "${args[@]:1}"
+      docker run --name "$container_name" --rm --interactive --tty --entrypoint "${args[0]}" "$image_name" "${args[@]:1}"
       ;;
     s|sh)
-      docker run --name "$image_name" --rm --interactive --tty --entrypoint /bin/sh "$image_name"
+      docker run --name "$container_name" --rm --interactive --tty --entrypoint /bin/sh "$image_name"
       ;;
     t|tty)
-      docker run --name "$image_name" --rm --interactive --tty "$image_name"
+      docker run --name "$container_name" --rm --interactive --tty "$image_name"
       ;;
     *)
       echo_err "Unknown method: $method"
@@ -239,6 +280,16 @@ function get_function_names {
 
 # Docker-specifc utility functions
 
+function get_image_name {
+  local path username
+  path="${1:?No path specified}"
+  image_name="$(get_dir_name "$path")"
+  if username="$(get_username)"; then
+    image_name="$username/$image_name"
+  fi
+  echo "$image_name"
+}
+
 function get_auto_image_tags {
   local image_name
   image_name="${1:?No image name specified.}"
@@ -265,6 +316,11 @@ function requires_sudo {
   then
     return 1
   fi
+}
+
+function get_username {
+  docker info | grep 'Username:' | awk '{print $2}'
+  docker info | grep --quiet 'Username:' # exit code
 }
 
 # Utility functions
