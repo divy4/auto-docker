@@ -182,6 +182,7 @@ function override_autorun {
     return 1
   elif [[ ! -d "$path" ]]; then
     echo_err "$path is not a directory"
+    help_long_autorun 1>&2
     return 1
   fi
   image_name="$(get_image_name "$path")"
